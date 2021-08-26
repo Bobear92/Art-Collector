@@ -3,7 +3,7 @@ const KEY = "apikey=64e1e567-7663-4d68-bb27-f92e4b35775f"; // USE YOUR KEY HERE
 
 async function fetchObjects() {
   const url = `${BASE_URL}/object?${KEY}`;
-
+  onFetchStart();
   try {
     const response = await fetch(url);
     const data = await response.json();
@@ -11,10 +11,12 @@ async function fetchObjects() {
     return data;
   } catch (error) {
     console.error(error);
+  } finally {
+    onFetchEnd();
   }
 }
 
-fetchObjects().then((x) => console.log(x));
+// fetchObjects().then((x) => console.log(x));
 
 async function fetchAllCenturies() {
   const url = `${BASE_URL}/century?${KEY}&size=100&sort=temporalorder`;
@@ -28,7 +30,7 @@ async function fetchAllCenturies() {
     const data = await response.json();
     const records = data.records;
 
-    records.centuries = localStorage; // don't think this worked
+    localStorage.setItem("centuries", JSON.stringify(records));
 
     return records;
   } catch (error) {
@@ -38,8 +40,8 @@ async function fetchAllCenturies() {
 
 async function fetchAllClassifications() {
   const url = `${BASE_URL}/classification?${KEY}&size=100&sort=name`;
-  if (localStorage.getItem("classification")) {
-    return JSON.parse(localStorage.getItem("classification"));
+  if (localStorage.getItem("classifications")) {
+    return JSON.parse(localStorage.getItem("classifications"));
   }
 
   try {
@@ -47,7 +49,7 @@ async function fetchAllClassifications() {
     const data = await response.json();
     const records = data.records;
 
-    records.classification = localStorage; // don't think this worked
+    localStorage.setItem("classifications", JSON.stringify(records));
 
     return records;
   } catch (error) {
@@ -61,31 +63,71 @@ async function prefetchCategoryLists() {
       fetchAllClassifications(),
       fetchAllCenturies(),
     ]);
+
+    // This provides a clue to the user, that there are items in the dropdown
+    $(".classification-count").text(`(${classifications.length})`);
+
+    classifications.forEach((classification) => {
+      // append a correctly formatted option tag into
+      // the element with id select-classification
+
+      $("#select-classification").append(
+        `<option value="${classification.name}"> ${classification.name} </option>`
+      );
+    });
+
+    // This provides a clue to the user, that there are items in the dropdown
+    $(".century-count").text(`(${centuries.length}))`);
+
+    centuries.forEach((century) => {
+      // append a correctly formatted option tag into
+      // the element with id select-century
+
+      $("#select-century").append(
+        `<option value="${century.name}">${century.name}</option>`
+      );
+    });
   } catch (error) {
     console.error(error);
   }
 }
 
-// This provides a clue to the user, that there are items in the dropdown
-$(".classification-count").text(`(${classifications.length})`);
+function buildSearchString() {
+  let classification = $("#select-classification").val();
+  let century = $("#select-century").val();
+  let keyword = $("#keywords").val();
 
-classifications.forEach((classification) => {
-  // append a correctly formatted option tag into
-  // the element with id select-classification
+  return `${BASE_URL}/object?${KEY}&classification=${classification}&century=${century}&keyword=${keyword}`;
+}
 
-  $("#select-classification").append(
-    <option value="value text">${classification.name}</option>
-  );
+$("#search").on("submit", async function (event) {
+  // prevent the default
+  event.preventDefault();
+
+  try {
+    // get the url from `buildSearchString`
+    let url = buildSearchString();
+
+    const encodedUrl = encodeURI(url);
+
+    // fetch it with await, store the result
+    const response = await fetch(encodedUrl);
+    const data = await response.json();
+    // log out both info and records when you get them
+  } catch (error) {
+    // log out the error
+    console.error(error);
+  }
 });
 
-// This provides a clue to the user, that there are items in the dropdown
-$(".century-count").text(`(${centuries.length}))`);
+function onFetchStart() {
+  $("#loading").addClass("active");
+}
 
-centuries.forEach((century) => {
-  // append a correctly formatted option tag into
-  // the element with id select-century
+function onFetchEnd() {
+  $("#loading").removeClass("active");
+}
 
-  $("#select-century").append(
-    <option value="value text">${century.name}</option>
-  );
-});
+// Module 2
+
+prefetchCategoryLists();
